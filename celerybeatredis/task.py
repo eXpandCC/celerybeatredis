@@ -153,7 +153,7 @@ class PeriodicTask(object):
 
     def jsondump(self):
         # must do a deepcopy using our custom iterator to choose what to save (matching external view)
-        self_dict = deepcopy({k: v for k, v in iter(self) if v is not None})
+        self_dict = deepcopy(dict((k,v) for (k, v) in iter(self) if v is not None))
         return json.dumps(self_dict, cls=DateTimeEncoder)
 
     def update(self, other):
@@ -207,7 +207,7 @@ class PeriodicTask(object):
                 try:
                     schedule_inst = s(**schedule)
                 except TypeError as typexc:
-                    logger.warn("Create schedule failed. {}".format(schedule.__class__))
+                    logger.warn("Create schedule failed. {0}".format(schedule.__class__))
                     pass
 
             if schedule_inst is None:

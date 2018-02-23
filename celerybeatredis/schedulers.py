@@ -84,12 +84,12 @@ class RedisScheduleEntry(object):
     # Overrides schedule accessors in PeriodicTask to store dict in json but retrieve proper celery schedules
     #
     def get_schedule(self):
-        if {'every', 'period'}.issubset(self._task.schedule.keys()):
+        if set(['every', 'period']).issubset(self._task.schedule.keys()):
             return celery.schedules.schedule(
                     datetime.timedelta(
                         **{self._task.schedule['period']: self._task.schedule['every']}),
                     self.app)
-        elif {'minute', 'hour', 'day_of_week', 'day_of_month', 'month_of_year'}.issubset(
+        elif set(['minute', 'hour', 'day_of_week', 'day_of_month', 'month_of_year']).issubset(
                 self._task.schedule.keys()):
             return celery.schedules.crontab(minute=self._task.schedule['minute'],
                                             hour=self._task.schedule['hour'],
