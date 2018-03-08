@@ -207,7 +207,6 @@ class PeriodicTask(object):
                 try:
                     schedule_inst = s(**schedule)
                 except TypeError as typexc:
-                    logger.warn("Create schedule failed. {0}".format(schedule.__class__))
                     pass
 
             if schedule_inst is None:
