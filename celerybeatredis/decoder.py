@@ -48,5 +48,7 @@ class DateTimeEncoder(json.JSONEncoder):
                 'second': obj.second,
                 'microsecond': obj.microsecond,
             }
+        elif isinstance(obj, set):
+            return list(obj)
         else:
             return json.JSONEncoder.default(self, obj)
