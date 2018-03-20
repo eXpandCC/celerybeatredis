@@ -5,8 +5,10 @@
 # use this file except in compliance with the License. You may obtain a copy
 # of the License at http://www.apache.org/licenses/LICENSE-2.0
 import datetime
+from time import sleep
 from copy import deepcopy
 from redis import StrictRedis
+from redis.exceptions import BusyLoadingError
 import celery
 
 try:
@@ -126,8 +128,13 @@ class PeriodicTask(object):
     def get_all_as_dict(rdb, key_prefix):
         """get all of the tasks, for best performance with large amount of tasks, return a generator
         """
-
-        tasks = rdb.keys(key_prefix + '*')
+        while True:
+            try:
+                tasks = rdb.keys(key_prefix + '*')
+                break
+            except BusyLoadingError:
+                logger.warning('ERROR BusyLoadingError. Wait some seconds please')
+                sleep(4)
         for task_key in tasks:
             try:
                 dct = json.loads(bytes_to_str(rdb.get(task_key)), cls=DateTimeDecoder, encoding=default_encoding)
