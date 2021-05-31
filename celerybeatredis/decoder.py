@@ -14,8 +14,7 @@ except ImportError:
 
 class DateTimeDecoder(json.JSONDecoder):
     def __init__(self, *args, **kargs):
-        json.JSONDecoder.__init__(self, object_hook=self.dict_to_object,
-                                  *args, **kargs)
+        json.JSONDecoder.__init__(self, object_hook=self.dict_to_object, *args, **kargs)
 
     def dict_to_object(self, d):
         if '__type__' not in d:

@@ -1,3 +1,9 @@
+# General (fork) information
+
+This fork of celerybeat-redis was firstly modified to get compatibility for Python 2.6. Now that version 2.6 is out of date, it was modified, by the eXpand dev. team, to get compatibility with Python version 3.x.
+
+The rest of the project, including the following text, stays unmodified.
+
 # Project Status
 
 Because of the busy of work, I doesn't got much time on this time, and one major reason is now I am programming with Java...
@@ -140,7 +146,7 @@ Becomes the following::
     "enabled" : true,
     "interval" : {
         "every" : 30,
-        "period" : "seconds",
+        "period" : "seconds"
     },
     "args" : [
         "param1",
