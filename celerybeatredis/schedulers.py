@@ -218,20 +218,22 @@ class RedisScheduler(Scheduler):
 
     def __init__(self, *args, **kwargs):
         if hasattr(current_app.conf, 'CELERY_REDIS_SCHEDULER_URL'):
-            logger.info('backend scheduler using %s',
-                        current_app.conf.CELERY_REDIS_SCHEDULER_URL)
+            logger.info(
+                'backend scheduler using %s',
+                current_app.conf.CELERY_REDIS_SCHEDULER_URL
+            )
         else:
-            logger.info('backend scheduler using %s',
-                        current_app.conf.CELERY_REDIS_SCHEDULER_URL)
+            logger.info(
+                'backend scheduler using %s',
+                current_app.conf.CELERY_REDIS_SCHEDULER_URL
+            )
 
-        self.update_interval = current_app.conf.get('UPDATE_INTERVAL') or datetime.timedelta(
-                seconds=10)
+        self.update_interval = current_app.conf.get(
+            'UPDATE_INTERVAL', datetime.timedelta(seconds=10)
+        )
 
         # how long we should hold on to the redis lock in seconds
-        if 'CELERY_REDIS_SCHEDULER_LOCK_TTL' in current_app.conf:
-            lock_ttl = current_app.conf.CELERY_REDIS_SCHEDULER_LOCK_TTL
-        else:
-            lock_ttl = 30
+        lock_ttl = current_app.conf.get("CELERY_REDIS_SCHEDULER_LOCK_TTL", 30)
 
         if lock_ttl < self.update_interval.seconds:
             lock_ttl = self.update_interval.seconds * 2
@@ -264,14 +266,17 @@ class RedisScheduler(Scheduler):
         Executes all due tasks.
         """
         # need to grab all data (might have been updated) from schedule DB.
-        # we need to merge it with whatever schedule was set in config, and already installed default tasks
+        # we need to merge it with whatever schedule was set in config, and already
+        # installed default tasks
         try:
             s = self.all_as_schedule()
             self.merge_inplace(s)
         except Exception as exc:
             logger.error(
-                    "Exception when getting tasks from {url} : {exc}".format(url=self.schedule_url,
-                                                                             exc=exc))
+                "Exception when getting tasks from {url} : {exc}".format(
+                    url=self.schedule_url, exc=exc
+                )
+            )
             # TODO : atomic merge : be able to cancel it if there s a problem
             raise
 

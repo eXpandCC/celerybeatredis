@@ -49,5 +49,7 @@ class DateTimeEncoder(json.JSONEncoder):
             }
         elif isinstance(obj, set):
             return list(obj)
+        elif isinstance(obj, bytes):
+            return obj.decode("utf-8")
         else:
             return json.JSONEncoder.default(self, obj)
