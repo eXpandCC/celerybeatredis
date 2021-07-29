@@ -286,6 +286,29 @@ class RedisScheduler(Scheduler):
         # this will call self.maybe_due() to check if any entry is due.
         return super(RedisScheduler, self).tick()
 
+    def merge_inplace(self, b):
+        schedule = self.schedule
+        A, B = set(schedule), set(b)
+
+        # Remove items from disk not in the schedule anymore.
+        for key in A ^ B:
+            schedule.pop(key, None)
+
+        # Update and add new items in the schedule
+        for key in B:
+            entry = self.Entry(**dict(b[key], name=key, app=self.app))
+            # Update entry from REDIS
+            if schedule.get(key):
+                schedule[key].update(entry)
+            else:
+                schedule[key] = entry
+
+            # Remove task.name from self._dirty to avoid setting old values into REDIS
+            # in the sync() step
+            if entry.name in self._dirty:
+                self._dirty.remove(entry.name)
+                logger.debug("Remove task: {0} from _dirty set".format(entry.name))
+
     def all_as_schedule(self, key_prefix=None, entry_class=None):
         logger.debug('RedisScheduler: Fetching database schedule')
         key_prefix = key_prefix or current_app.conf.CELERY_REDIS_SCHEDULER_KEY_PREFIX
