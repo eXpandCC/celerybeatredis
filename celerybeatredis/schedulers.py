@@ -7,6 +7,7 @@
 import datetime
 import logging
 from functools import partial
+
 # we don't need simplejson, builtin json module is good enough
 import json
 from copy import deepcopy
@@ -33,18 +34,33 @@ class RedisScheduleEntry(object):
      that uses SQLAlchemy DBModels as delegates.
     """
 
-    def __init__(self, name=None, task=None, enabled=True, last_run_at=None,
-                 total_run_count=None, schedule=None, args=(), kwargs=None,
-                 options=None, app=None, **extrakwargs):
+    def __init__(
+        self,
+        name=None,
+        task=None,
+        enabled=True,
+        last_run_at=None,
+        total_run_count=None,
+        schedule=None,
+        args=(),
+        kwargs=None,
+        options=None,
+        app=None,
+        **extrakwargs,
+    ):
 
         # defaults (MUST NOT call self here - or loop __getattr__ for ever)
         app = app or current_app
         # Setting a default time a bit before now to not miss a task that was just added.
         last_run_at = last_run_at or app.now() - datetime.timedelta(
-                seconds=app.conf.CELERYBEAT_MAX_LOOP_INTERVAL)
+            seconds=app.conf.CELERYBEAT_MAX_LOOP_INTERVAL
+        )
 
         # using periodic task as delegate
-        object.__setattr__(self, '_task', PeriodicTask(
+        object.__setattr__(
+            self,
+            "_task",
+            PeriodicTask(
                 # Note : for compatibiilty with celery methods, the name of the task is actually the key in redis DB.
                 # For extra fancy fields (like a human readable name, you can leverage extrakwargs)
                 name=name,
@@ -56,15 +72,16 @@ class RedisScheduleEntry(object):
                 options=options or {},
                 last_run_at=last_run_at,
                 total_run_count=total_run_count or 0,
-                **extrakwargs
-        ))
+                **extrakwargs,
+            ),
+        )
 
         #
         # Initializing members here and not in delegate
         #
 
         # The app is kept here (PeriodicTask should not need it)
-        object.__setattr__(self, 'app', app)
+        object.__setattr__(self, "app", app)
 
     # automatic delegation to PeriodicTask (easy delegate)
     def __getattr__(self, attr):
@@ -72,53 +89,63 @@ class RedisScheduleEntry(object):
 
     def __setattr__(self, attr, value):
         # We set the attribute in the task delegate if available
-        if hasattr(self, '_task') and hasattr(self._task, attr):
+        if hasattr(self, "_task") and hasattr(self._task, attr):
             setattr(self._task, attr, value)
             return
         # else we raise
         raise AttributeError(
             "Attribute {attr} not found in {tasktype}".format(
                 attr=attr, tasktype=type(self._task)
-            ))
+            )
+        )
 
     #
     # Overrides schedule accessors in PeriodicTask to store dict in json but retrieve proper celery schedules
     #
     def get_schedule(self):
-        if {'every', 'period'}.issubset(self._task.schedule.keys()):
+        if {"every", "period"}.issubset(self._task.schedule.keys()):
             return celery.schedules.schedule(
-                    datetime.timedelta(
-                        **{self._task.schedule['period']: self._task.schedule['every']}),
-                    self.app)
-        elif {'minute', 'hour', 'day_of_week', 'day_of_month', 'month_of_year'}.issubset(
-                self._task.schedule.keys()):
-            return celery.schedules.crontab(minute=self._task.schedule['minute'],
-                                            hour=self._task.schedule['hour'],
-                                            day_of_week=self._task.schedule['day_of_week'],
-                                            day_of_month=self._task.schedule['day_of_month'],
-                                            month_of_year=self._task.schedule['month_of_year'],
-                                            app=self.app)
+                datetime.timedelta(
+                    **{self._task.schedule["period"]: self._task.schedule["every"]}
+                ),
+                self.app,
+            )
+        elif {
+            "minute",
+            "hour",
+            "day_of_week",
+            "day_of_month",
+            "month_of_year",
+        }.issubset(self._task.schedule.keys()):
+            return celery.schedules.crontab(
+                minute=self._task.schedule["minute"],
+                hour=self._task.schedule["hour"],
+                day_of_week=self._task.schedule["day_of_week"],
+                day_of_month=self._task.schedule["day_of_month"],
+                month_of_year=self._task.schedule["month_of_year"],
+                app=self.app,
+            )
         else:
-            raise TaskTypeError('Existing Task schedule type not recognized')
+            raise TaskTypeError("Existing Task schedule type not recognized")
 
     def set_schedule(self, schedule):
         if isinstance(schedule, celery.schedules.schedule):
             # TODO : unify this with Interval in PeriodicTask
             self._task.schedule = {
-                'every': max(schedule.run_every.total_seconds(), 0),
-                'period': 'seconds'
+                "every": max(schedule.run_every.total_seconds(), 0),
+                "period": "seconds",
             }
         elif isinstance(schedule, celery.schedules.crontab):
             # TODO : unify this with Crontab in PeriodicTask
             self._task.schedule = {
-                'minute': schedule._orig_minute,
-                'hour': schedule._orig_hour,
-                'day_of_week': schedule._orig_day_of_week,
-                'day_of_month': schedule._orig_day_of_month,
-                'month_of_year': schedule._orig_month_of_year
+                "minute": schedule._orig_minute,
+                "hour": schedule._orig_hour,
+                "day_of_week": schedule._orig_day_of_week,
+                "day_of_month": schedule._orig_day_of_month,
+                "month_of_year": schedule._orig_month_of_year,
             }
         else:
-            raise TaskTypeError('New Task schedule type not recognized')
+            raise TaskTypeError("New Task schedule type not recognized")
 
     schedule = property(get_schedule, set_schedule)
 
@@ -129,9 +156,9 @@ class RedisScheduleEntry(object):
         """See :meth:`~celery.schedule.schedule.is_due`."""
         due = self.schedule.is_due(self.last_run_at)
 
-        logger.debug('task {0} due : {1}'.format(self.name, due))
+        logger.debug("task {0} due : {1}".format(self.name, due))
         if not self.enabled:
-            logger.info('task {0} is disabled. not triggered.'.format(self.name))
+            logger.info("task {0} is disabled. not triggered.".format(self.name))
             # if the task is disabled, we always return false, but the time that
             # it is next due is returned as usual
             return celery.schedules.schedstate(is_due=False, next=due[1])
@@ -139,9 +166,9 @@ class RedisScheduleEntry(object):
         return due
 
     def __repr__(self):
-        return '<RedisScheduleEntry: {0.name} {call} {0.schedule}'.format(
-                self,
-                call=kombu.utils.reprcall(self.task, self.args or (), self.kwargs or {}),
+        return "<RedisScheduleEntry: {0.name} {call} {0.schedule}".format(
+            self,
+            call=kombu.utils.reprcall(self.task, self.args or (), self.kwargs or {}),
         )
 
     def update(self, other):
@@ -167,11 +194,13 @@ class RedisScheduleEntry(object):
     def _next_instance(self, last_run_at=None):
         """Return a new instance of the same class, but with
         its date and count fields updated."""
-        return self.__class__(**dict(
+        return self.__class__(
+            **dict(
                 self,
                 last_run_at=last_run_at or self._default_now(),
                 total_run_count=self.total_run_count + 1,
-        ))
+            )
+        )
 
     __next__ = next = _next_instance  # for 2to3
 
@@ -182,34 +211,37 @@ class RedisScheduleEntry(object):
 
     @staticmethod
     def get_all_as_dict(scheduler_url, key_prefix):
-        """get all of the tasks, for best performance with large amount of tasks, return a generator
-        """
+        """get all of the tasks, for best performance with large amount of tasks, return a generator"""
         # Calling another generator
-        for task_key, task_dict in PeriodicTask.get_all_as_dict(scheduler_url, key_prefix):
+        for task_key, task_dict in PeriodicTask.get_all_as_dict(
+            scheduler_url, key_prefix
+        ):
             yield task_key, task_dict
 
     @classmethod
     def from_entry(cls, scheduler_url, name, **entry):
-        options = entry.get('options') or {}
+        options = entry.get("options") or {}
         fields = dict(entry)
-        fields['name'] = current_app.conf.CELERY_REDIS_SCHEDULER_KEY_PREFIX + name
-        schedule = fields.pop('schedule')
+        fields["name"] = current_app.conf.CELERY_REDIS_SCHEDULER_KEY_PREFIX + name
+        schedule = fields.pop("schedule")
         schedule = celery.schedules.maybe_schedule(schedule)
         if isinstance(schedule, celery.schedules.crontab):
-            fields['crontab'] = {
-                'minute': schedule._orig_minute,
-                'hour': schedule._orig_hour,
-                'day_of_week': schedule._orig_day_of_week,
-                'day_of_month': schedule._orig_day_of_month,
-                'month_of_year': schedule._orig_month_of_year
+            fields["crontab"] = {
+                "minute": schedule._orig_minute,
+                "hour": schedule._orig_hour,
+                "day_of_week": schedule._orig_day_of_week,
+                "day_of_month": schedule._orig_day_of_month,
+                "month_of_year": schedule._orig_month_of_year,
             }
         elif isinstance(schedule, celery.schedules.schedule):
-            fields['interval'] = {'every': max(schedule.run_every.total_seconds(), 0),
-                                  'period': 'seconds'}
+            fields["interval"] = {
+                "every": max(schedule.run_every.total_seconds(), 0),
+                "period": "seconds",
+            }
 
-        fields['args'] = fields.get('args', [])
-        fields['kwargs'] = fields.get('kwargs', {})
-        fields['key'] = fields['name']
+        fields["args"] = fields.get("args", [])
+        fields["kwargs"] = fields.get("kwargs", {})
+        fields["key"] = fields["name"]
         return cls(PeriodicTask.from_dict(fields, scheduler_url))
 
 
@@ -217,19 +249,19 @@ class RedisScheduler(Scheduler):
     Entry = RedisScheduleEntry
 
     def __init__(self, *args, **kwargs):
-        if hasattr(current_app.conf, 'CELERY_REDIS_SCHEDULER_URL'):
+        if hasattr(current_app.conf, "CELERY_REDIS_SCHEDULER_URL"):
             logger.info(
-                'backend scheduler using %s',
-                current_app.conf.CELERY_REDIS_SCHEDULER_URL
+                "backend scheduler using %s",
+                current_app.conf.CELERY_REDIS_SCHEDULER_URL,
             )
         else:
             logger.info(
-                'backend scheduler using %s',
-                current_app.conf.CELERY_REDIS_SCHEDULER_URL
+                "backend scheduler using %s",
+                current_app.conf.CELERY_REDIS_SCHEDULER_URL,
             )
 
         self.update_interval = current_app.conf.get(
-            'UPDATE_INTERVAL', datetime.timedelta(seconds=10)
+            "UPDATE_INTERVAL", datetime.timedelta(seconds=10)
         )
 
         # how long we should hold on to the redis lock in seconds
@@ -246,7 +278,7 @@ class RedisScheduler(Scheduler):
         self.rdb = StrictRedis.from_url(self.schedule_url)
         self._last_updated = None
         self._lock_acquired = False
-        self._lock = self.rdb.lock('celery:beat:task_lock', timeout=self.lock_ttl)
+        self._lock = self.rdb.lock("celery:beat:task_lock", timeout=self.lock_ttl)
         self._lock_acquired = self._lock.acquire(blocking=False)
         self.Entry.scheduler = self
 
@@ -310,14 +342,21 @@ class RedisScheduler(Scheduler):
                 logger.debug("Remove task: {0} from _dirty set".format(entry.name))
 
     def all_as_schedule(self, key_prefix=None, entry_class=None):
-        logger.debug('RedisScheduler: Fetching database schedule')
+        logger.debug("RedisScheduler: Fetching database schedule")
         key_prefix = key_prefix or current_app.conf.CELERY_REDIS_SCHEDULER_KEY_PREFIX
         entry_class = entry_class or self.Entry
 
         d = {}
         for key, task in entry_class.get_all_as_dict(self.rdb, key_prefix):
             # logger.debug('Building {0} from : {1}'.format(entry_class, task))
-            d[key] = entry_class(**dict(task, app=self.app))
+            if task["task"] is None:
+                logger.warning(
+                    "Task {0} could not build because task attribute is None".format(
+                        task["name"]
+                    )
+                )
+            else:
+                d[key] = entry_class(**dict(task, app=self.app))
         return d
 
     def reserve(self, entry):
@@ -328,7 +367,7 @@ class RedisScheduler(Scheduler):
         return new_entry
 
     def sync(self):
-        logger.info('Writing modified entries...')
+        logger.info("Writing modified entries...")
         _tried = set()
         try:
             while self._dirty:
@@ -340,7 +379,7 @@ class RedisScheduler(Scheduler):
         except Exception as exc:
             # retry later
             self._dirty |= _tried
-            logger.error('Error while sync: %r', exc, exc_info=1)
+            logger.error("Error while sync: %r", exc, exc_info=1)
 
     def close(self):
         try:
@@ -358,4 +397,4 @@ class RedisScheduler(Scheduler):
 
     @property
     def info(self):
-        return '    . db -> {self.schedule_url}'.format(self=self)
+        return "    . db -> {self.schedule_url}".format(self=self)
