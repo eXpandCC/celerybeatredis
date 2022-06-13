@@ -349,7 +349,7 @@ class RedisScheduler(Scheduler):
         d = {}
         for key, task in entry_class.get_all_as_dict(self.rdb, key_prefix):
             # logger.debug('Building {0} from : {1}'.format(entry_class, task))
-            if task.get("task") is None:
+            if task.get("task") is None or task.get("schedule") is None:
                 logger.warning(
                     "Task {0} could not build because task attribute is None".format(
                         task.get("name")
