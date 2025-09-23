@@ -171,6 +171,18 @@ class RedisScheduleEntry(object):
             call=kombu.utils.reprcall(self.task, self.args or (), self.kwargs or {}),
         )
 
+    def __lt__(self, other):
+        if isinstance(other, RedisScheduleEntry):
+            # How the object is ordered doesn't really matter, as
+            # in the scheduler heap, the order is decided by the
+            # preceding members of the tuple ``(time, priority, entry)``.
+            #
+            # If all that's left to order on is the entry then it can
+            # just as well be random.
+            return id(self) < id(other)
+        return NotImplemented
+
+
     def update(self, other):
         """
         Update values from another entry.
@@ -187,7 +199,7 @@ class RedisScheduleEntry(object):
     #
 
     # from celery.beat.ScheduleEntry._default_now
-    def _default_now(self):
+    def default_now(self):
         return self.get_schedule().now() if self.schedule else self.app.now()
 
     # from celery.beat.ScheduleEntry._next_instance
@@ -197,7 +209,7 @@ class RedisScheduleEntry(object):
         return self.__class__(
             **dict(
                 self,
-                last_run_at=last_run_at or self._default_now(),
+                last_run_at=last_run_at or self.default_now(),
                 total_run_count=self.total_run_count + 1,
             )
         )
