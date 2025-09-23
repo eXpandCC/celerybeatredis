@@ -21,4 +21,4 @@ v1.0.0-expand Modifications to support Python 3.x
 
 v1.0.1-expand Modifications to fix when scheduler wants to load invalid task
 
-v1.0.2-expand Modifications to support Python > 3.9 (deprecated encoding in json.loads).
+v1.0.2-expand Modifications to support Python >= 3.9 (deprecated encoding in json.loads).
