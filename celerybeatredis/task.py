@@ -135,9 +135,13 @@ class PeriodicTask(object):
                 logger.warning('ERROR BusyLoadingError. Wait some seconds please')
                 sleep(4)
         for task_key in tasks:
+            raw = rdb.get(task_key)
+            if raw is None:
+                # key was deleted between the `keys()` scan and this `get()`
+                logger.warning('ERROR key %s vanished before it could be read', task_key)
+                continue
             try:
-                dct = json.loads(bytes_to_str(rdb.get(task_key)), cls=DateTimeDecoder)
-                #dct = json.loads(bytes_to_str(rdb.get(task_key)), cls=DateTimeDecoder, encoding=default_encoding)
+                dct = json.loads(bytes_to_str(raw), cls=DateTimeDecoder)
                 # task name should always correspond to the key in redis to avoid
                 # issues arising when saving keys - we want to add information to
                 # the current key, not create a new key
